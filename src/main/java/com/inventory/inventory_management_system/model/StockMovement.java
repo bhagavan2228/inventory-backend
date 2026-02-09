@@ -20,15 +20,20 @@ public class StockMovement {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    private int quantityChanged;   // +10 or -5
+    // +10 for stock-in, -5 for stock-out
+    private int quantityChanged;
 
-    private String type;            // IN / OUT
+    // IN or OUT
+    private String type;
 
-    private String reason;          // INITIAL_STOCK, SALE
+    // INITIAL_STOCK, STOCK_IN, SALE
+    private String reason;
 
+    // When the stock change happened
     private LocalDateTime timestamp;
 
-    public StockMovement() {}
+    public StockMovement() {
+    }
 
     public StockMovement(Product product, int quantityChanged, String type, String reason) {
         this.product = product;
@@ -42,44 +47,44 @@ public class StockMovement {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public Product getProduct() {
         return product;
-    }
-
-    public void setProduct(Product product) {
-        this.product = product;
     }
 
     public int getQuantityChanged() {
         return quantityChanged;
     }
 
-    public void setQuantityChanged(int quantityChanged) {
-        this.quantityChanged = quantityChanged;
-    }
-
     public String getType() {
         return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
     }
 
     public String getReason() {
         return reason;
     }
 
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
     public LocalDateTime getTimestamp() {
         return timestamp;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setProduct(Product product) {
+        this.product = product;
+    }
+
+    public void setQuantityChanged(int quantityChanged) {
+        this.quantityChanged = quantityChanged;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
     }
 
     public void setTimestamp(LocalDateTime timestamp) {

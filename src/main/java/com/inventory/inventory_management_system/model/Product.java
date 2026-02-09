@@ -24,10 +24,6 @@ public class Product {
     @Min(value = 1, message = "Price must be greater than 0")
     private double price;
 
-    @NotNull(message = "Quantity is required")
-    @Min(value = 0, message = "Quantity cannot be negative")
-    private int quantity;
-
     @ManyToOne
     @JoinColumn(name = "category_id")
     private Category category;
@@ -46,10 +42,6 @@ public class Product {
         return price;
     }
 
-    public int getQuantity() {
-        return quantity;
-    }
-
     public Category getCategory() {
         return category;
     }
@@ -64,10 +56,6 @@ public class Product {
 
     public void setPrice(double price) {
         this.price = price;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
     }
 
     public void setCategory(Category category) {

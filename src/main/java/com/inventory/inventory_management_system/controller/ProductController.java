@@ -2,6 +2,9 @@ package com.inventory.inventory_management_system.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,10 +15,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.inventory.inventory_management_system.dto.ProductRequest;
+import com.inventory.inventory_management_system.dto.ProductResponse;
+import com.inventory.inventory_management_system.dto.StockMovementResponse;
+import com.inventory.inventory_management_system.entity.Inventory;
 import com.inventory.inventory_management_system.model.Product;
-import com.inventory.inventory_management_system.model.StockMovement;
-import com.inventory.inventory_management_system.repository.ProductRepository;
-import com.inventory.inventory_management_system.repository.StockMovementRepository;
+import com.inventory.inventory_management_system.service.ProductService;
 
 import jakarta.validation.Valid;
 
@@ -24,22 +29,21 @@ import jakarta.validation.Valid;
 @CrossOrigin(origins = "http://localhost:3000")
 public class ProductController {
 
-    private final ProductRepository productRepository;
-    private final StockMovementRepository stockMovementRepository;
+    private final ProductService productService;
 
-    public ProductController(ProductRepository productRepository,
-                             StockMovementRepository stockMovementRepository) {
-        this.productRepository = productRepository;
-        this.stockMovementRepository = stockMovementRepository;
+    public ProductController(ProductService productService) {
+        this.productService = productService;
     }
 
-    // ✅ Get all products
+    // 👀 ADMIN + STAFF + VIEWER
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF','VIEWER')")
     @GetMapping
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
+    public Page<ProductResponse> getAllProducts(Pageable pageable) {
+        return productService.getProductsPaged(pageable);
     }
 
-    // ✅ SEARCH & FILTER PRODUCTS (DAY 3 – STEP 3.5 🔥)
+    // 👀 ADMIN + STAFF + VIEWER
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF','VIEWER')")
     @GetMapping("/search")
     public List<Product> searchProducts(
             @RequestParam(required = false) String name,
@@ -47,100 +51,51 @@ public class ProductController {
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice
     ) {
-
-        if (name != null && categoryId != null) {
-            return productRepository
-                    .findByNameContainingIgnoreCaseAndCategoryId(name, categoryId);
-        }
-
-        if (name != null) {
-            return productRepository.findByNameContainingIgnoreCase(name);
-        }
-
-        if (categoryId != null) {
-            return productRepository.findByCategoryId(categoryId);
-        }
-
-        if (minPrice != null && maxPrice != null) {
-            return productRepository.findByPriceBetween(minPrice, maxPrice);
-        }
-
-        return productRepository.findAll();
+        return productService.searchProducts(name, categoryId, minPrice, maxPrice);
     }
 
-    // ✅ Add new product + log INITIAL_STOCK
+    // 🔐 ADMIN ONLY
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public Product addProduct(@Valid @RequestBody Product product) {
-
-        Product savedProduct = productRepository.save(product);
-
-        StockMovement movement = new StockMovement(
-                savedProduct,
-                savedProduct.getQuantity(),
-                "IN",
-                "INITIAL_STOCK"
-        );
-
-        stockMovementRepository.save(movement);
-
-        return savedProduct;
+    public ProductResponse addProduct(@Valid @RequestBody ProductRequest request) {
+        return productService.addProductResponse(request);
     }
 
-    // ✅ Delete product
+    // 🔐 ADMIN ONLY
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public void deleteProduct(@PathVariable Long id) {
-        productRepository.deleteById(id);
+        productService.deleteProduct(id);
     }
 
-    // ✅ STOCK IN (Increase quantity + log)
+    // 🔐 ADMIN + STAFF
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     @PostMapping("/{id}/stock-in")
-    public Product stockIn(
-            @PathVariable Long id,
-            @RequestParam int amount
-    ) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-
-        product.setQuantity(product.getQuantity() + amount);
-        Product updated = productRepository.save(product);
-
-        StockMovement movement = new StockMovement(
-                updated,
-                amount,
-                "IN",
-                "STOCK_IN"
-        );
-
-        stockMovementRepository.save(movement);
-
-        return updated;
+    public Product stockIn(@PathVariable Long id,
+                           @RequestParam int amount) {
+        return productService.stockIn(id, amount);
     }
 
-    // ✅ STOCK OUT (Decrease quantity + log SALE)
+    // 🔐 ADMIN + STAFF
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     @PostMapping("/{id}/stock-out")
-    public Product stockOut(
-            @PathVariable Long id,
-            @RequestParam int amount
-    ) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+    public Product stockOut(@PathVariable Long id,
+                            @RequestParam int amount) {
+        return productService.stockOut(id, amount);
+    }
 
-        if (product.getQuantity() < amount) {
-            throw new RuntimeException("Insufficient stock");
-        }
+    // 👀 ADMIN + STAFF + VIEWER
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF','VIEWER')")
+    @GetMapping("/{id}/stock-history")
+    public List<StockMovementResponse> getStockHistory(@PathVariable Long id) {
+        return productService.getStockHistoryDto(id);
+    }
 
-        product.setQuantity(product.getQuantity() - amount);
-        Product updated = productRepository.save(product);
-
-        StockMovement movement = new StockMovement(
-                updated,
-                -amount,
-                "OUT",
-                "SALE"
-        );
-
-        stockMovementRepository.save(movement);
-
-        return updated;
+    // 👀 ADMIN + STAFF + VIEWER
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF','VIEWER')")
+    @GetMapping("/low-stock")
+    public List<Inventory> getLowStockProducts(
+            @RequestParam(defaultValue = "5") int threshold) {
+        return productService.getLowStockProducts(threshold);
     }
 }
